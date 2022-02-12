@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -106,7 +107,8 @@ func downloadImages(pageNumber int, notify func(downloadStatus), wg *sync.WaitGr
 			if err != nil {
 				return fmt.Errorf("Error getting file extension: %s", err)
 			}
-			filePath := fmt.Sprintf("./out/%d-%s-%s.%s", house.ID, house.Homeowner, house.Address, ext)
+			fileName := fmt.Sprintf("%d-%s-%s.%s", house.ID, house.Homeowner, house.Address, ext)
+			filePath := path.Join(saveDir, fileName)
 			return downloadImage(house.PhotoURL, filePath, downloadChan)
 		})
 	}

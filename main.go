@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -16,7 +17,7 @@ import (
 )
 
 const (
-	endpoint = "http://app-homevision-staging.herokuapp.com/api_project/houses?page=%d"
+	endpoint = "http://app-homevision-staging.herokuapp.com/api_project/houses"
 )
 
 var (
@@ -56,15 +57,15 @@ func main() {
 
 	// I'm assuming that each page has exactly 10 houses, so the total number of downloads would be 10 * pageCount
 	progressBar, _ := pterm.DefaultProgressbar.WithTotal(pageCount * 10).WithTitle("Downloading images...").Start()
-	// Not entirely sure if the increment function on the progress bar is thread safe, so we'll use a mutex just to be safe
-	var pm sync.Mutex
-
 	defer func() {
 		progressBar.Stop()
 		pterm.Success.Printfln("Downloaded %d images", progressBar.Total)
 	}()
 
+	var pm sync.Mutex
+
 	logProgress := func(d downloadStatus) {
+		// Not entirely sure if the increment function on the progress bar is thread safe, so we'll use a mutex just to be safe
 		pm.Lock()
 		defer pm.Unlock()
 		progressBar.Increment()
@@ -121,8 +122,15 @@ func downloadImages(pageNumber int, notify func(downloadStatus), wg *sync.WaitGr
 
 // fetchHouses will fetch the houses from the given page number
 func fetchHouses(pageNumber int) ([]house, error) {
-	// Todo: create a url object first and add the page number
-	resp, err := http.Get(fmt.Sprintf(endpoint, pageNumber))
+	u, err := url.Parse(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	u.RawQuery = url.Values{
+		"page": []string{fmt.Sprintf("%d", pageNumber)},
+	}.Encode()
+
+	resp, err := http.Get(u.String())
 	if err != nil {
 		return nil, err
 	}

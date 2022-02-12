@@ -216,13 +216,3 @@ func getFileExtension(url string) (string, error) {
 
 	return mimeType, nil
 }
-
-// contains returns true if the given slice contains the given value
-func contains(arr []int, val int) bool {
-	for _, v := range arr {
-		if v == val {
-			return true
-		}
-	}
-	return false
-}

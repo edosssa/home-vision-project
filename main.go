@@ -154,8 +154,8 @@ func fetchHouses(pageNumber int) ([]house, error) {
 	return r.Houses, nil
 }
 
-// downloadImage will download the image from the given url and save it to the given file name
-func downloadImage(url string, fileName string, c chan struct{}) error {
+// downloadImage will download the image from the given url and save it to the given path
+func downloadImage(url string, filePath string, c chan struct{}) error {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -166,7 +166,7 @@ func downloadImage(url string, fileName string, c chan struct{}) error {
 	}
 	defer resp.Body.Close()
 
-	f, err := os.OpenFile(fileName, os.O_CREATE|os.O_WRONLY, 0644)
+	f, err := os.OpenFile(filePath, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
 	}

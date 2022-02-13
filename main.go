@@ -66,7 +66,8 @@ func main() {
 	var pm sync.Mutex
 
 	logProgress := func(d downloadStatus) {
-		// Not entirely sure if the increment function on the progress bar is thread safe, so we'll use a mutex just to be safe
+		// Not entirely sure if the increment function on the progress bar is thread safe,
+		// so we'll use a mutex just to be safe
 		pm.Lock()
 		defer pm.Unlock()
 		progressBar.Increment()
@@ -95,11 +96,10 @@ func downloadImages(pageNumber int, notify func(downloadStatus), wg *sync.WaitGr
 		return
 	})
 
-	// Keeps track of the download count for this page
-	var downloadCount uint32
-	downloadChan := make(chan struct{}, len(houses))
+	// Keeps track of downloaded images
+	var dc uint32
+	c := make(chan struct{}, len(houses))
 
-	// Start a goroutine to download the image for each house
 	for _, h := range houses {
 		house := h
 		go retryIndefintely(func() error {
@@ -109,20 +109,25 @@ func downloadImages(pageNumber int, notify func(downloadStatus), wg *sync.WaitGr
 			}
 			fileName := fmt.Sprintf("%d-%s-%s.%s", house.ID, house.Homeowner, house.Address, ext)
 			filePath := path.Join(saveDir, fileName)
-			return downloadImage(house.PhotoURL, filePath, downloadChan)
+			err = downloadImage(house.PhotoURL, filePath)
+			if err != nil {
+				return err
+			}
+			c <- struct{}{}
+			return nil
 		})
 	}
 
 	for i := 0; i < len(houses); i++ {
-		<-downloadChan
-		atomic.AddUint32(&downloadCount, 1)
-		notify(downloadStatus{page: pageNumber, total: len(houses), current: int(downloadCount)})
+		<-c
+		atomic.AddUint32(&dc, 1)
+		notify(downloadStatus{page: pageNumber, total: len(houses), current: int(dc)})
 	}
 
 	wg.Done()
 }
 
-// fetchHouses will fetch the houses from the given page number
+// fetchHouses will fetch the houses for the given page number
 func fetchHouses(pageNumber int) ([]house, error) {
 	u, err := url.Parse(endpoint)
 	if err != nil {
@@ -155,7 +160,7 @@ func fetchHouses(pageNumber int) ([]house, error) {
 }
 
 // downloadImage will download the image from the given url and save it to the given path
-func downloadImage(url string, filePath string, c chan struct{}) error {
+func downloadImage(url string, filePath string) error {
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
 		return err
@@ -178,7 +183,6 @@ func downloadImage(url string, filePath string, c chan struct{}) error {
 		return err
 	}
 
-	c <- struct{}{}
 	return nil
 }
 
@@ -196,8 +200,6 @@ func retryIndefintely(f func() error) {
 
 // getFileExtension infers the file extension from a url by probing the content type
 func getFileExtension(url string) (string, error) {
-	// Instead of just assuming the extension is in the url which is a valid assumption for this use case,
-	// we'll instead extract the content type from the HEAD response and then infer the extension from that
 	req, err := http.NewRequest("HEAD", url, nil)
 	if err != nil {
 		return "", err
